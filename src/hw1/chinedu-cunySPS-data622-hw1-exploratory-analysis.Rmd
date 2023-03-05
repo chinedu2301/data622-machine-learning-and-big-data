@@ -1,0 +1,455 @@
+---
+title: "CUNY SPS DATA 622 HW1 - Exploratory Analysis"
+author: "Chinedu Onyeka"
+date: "March 1st, 2023"
+output:
+  html_document:
+    includes:
+      in_header: header.html
+    css: ./lab.css
+    highlight: pygments
+    theme: cerulean
+    toc: true
+    toc_float: true
+  pdf_document: default
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+---
+
+## Datasets To be Analyzed {.tabset}
+### **1.0 First Dataset - Heart Disease Prediction**
+This analyzes whether an individual will have heart disease  
+
+<b>*Load required libraries:*</b>  
+```{r load-libraries, message=FALSE}
+library(tidyverse)
+library(corrplot)
+library(ggcorrplot)
+library(Amelia)
+library(caTools)
+library(cowplot)
+```
+<b>*Load the data from github repo*</b>  
+```{r read-file, message=FALSE}
+url <- "https://raw.githubusercontent.com/chinedu2301/data622-machine-learning-and-big-data/main/data/heart_disease.csv"
+heart_disease <- read_csv(url)
+```
+
+<b>*Look at the head of the data*</b>  
+```{r}
+head(heart_disease, n = 10)
+```
+
+
+<b>*Get a glimpse of the variables in the datasets.*</b>  
+```{r}
+# get a glimpse of the variables
+glimpse(heart_disease)
+```
+
+*There are 918 rows and 12 columns in this data set.*  
+
+There are 12 variables and 918 observations in the dataset. Eleven(11) of the 12 variables in the dataset are potential predictors of the twelfth(12th) variable - HeartDisease. The data is labelled.  
+Each observation represents the characteristics of an individual such as Age, Sex, RestingBP, Cholesterol level, etc. and whether that individual has a Heart Disease or not.
+
+
+#### <b> Questions </b>  
+
+This project aims to: 
+<li> Explore the dataset to understand the data better. </li>
+<li> Find if the columns of the data correlated?. </li>
+<li> Predict whether an individual will develop heart disease or not using Logistic Regression model in R.</li>
+
+#### <b>Data Source </b>  
+
+This dataset was downloaded from [Kaggle](https://www.kaggle.com/fedesoriano/heart-failure-prediction) and then uploaded to my [github](https://raw.githubusercontent.com/chinedu2301/data622-machine-learning-and-big-data/main/data/heart_disease.csv) repository.
+
+
+#### <b>Response Variable (Dependent Variable)</b>  
+
+The dependent variable is "HeartDisease" which is coded as 1 if the individual has Heart Disease and as 0 if the individual does not have Heart Disease. The HeartDisease is a two level categorical variable.
+<li>HeartDisease: output class [1: heart disease, 0: Normal]</li>
+
+
+#### <b>Independent Variable (Explanatory or predictor variables)</b>  
+
+There are eleven (11) explanatory variables most of which are numerical and some are categorical. The explanatory variables are:  
+
+<li>Age: age of the patient [years]</li>
+<li>Sex: sex of the patient [M: Male, F: Female]</li>
+<li>ChestPainType: chest pain type [TA: Typical Angina, ATA: Atypical Angina, NAP: Non-Anginal Pain, ASY: Asymptomatic]</li>
+<li>RestingBP: resting blood pressure [mm Hg]</li>
+<li>Cholesterol: serum cholesterol [mm/dl]</li>
+<li>FastingBS: fasting blood sugar [1: if FastingBS > 120 mg/dl, 0: otherwise]</li>
+<li>RestingECG: resting electrocardiogram results [Normal: Normal, ST: having ST-T wave abnormality (T wave inversions and/or ST elevation or depression of > 0.05 mV), LVH: showing probable or definite left ventricular hypertrophy by Estes' criteria]</li>
+<li>MaxHR: maximum heart rate achieved [Numeric value between 60 and 202]</li>
+<li>ExerciseAngina: exercise-induced angina [Y: Yes, N: No]</li>
+<li>Oldpeak: oldpeak = ST [Numeric value measured in depression]</li>
+<li>ST_Slope: the slope of the peak exercise ST segment [Up: upsloping, Flat: flat, Down: downsloping]</li>
+
+
+
+#### <b>Relevant Summary statistics</b>  
+
+Relevant statistics are: 
+
+<b>*Summary statistics of all variables*</b>
+```{r}
+summary(heart_disease)
+```
+
+*From the summary statistics, we can see that the average age of individuals in the dataset is 53 while the median age is 54. Also, the mean RestingBP is 132, the mean Cholesterol level is 198.8, and mean maxHR is 136.8*  
+
+#### **Exploratory Data Analysis: **  
+
+
+**Check for Correlation**
+
+```{r}
+model.matrix(~0+., data=heart_disease) %>% 
+  cor(use="pairwise.complete.obs") %>% 
+  ggcorrplot(show.diag=FALSE, type="lower", lab=TRUE, lab_size=2)
+```
+
+The predictors are largely not correlated with one another as can be seen from the correlation plot.
+
+
+**Check for Null values**
+```{r}
+# Check for NA values
+any(is.na(heart_disease))
+```
+**Visualize the na values**
+```{r}
+# use missmap function from the Amelia package to check for NA values
+missmap(heart_disease, main = "Heart Data - Missing Values", col = c("yellow", "black"), legend = FALSE)
+```
+
+*There are no NA values in the dataset*
+
+**Bar Graph by Gender**  
+```{r}
+#filter the dataset for only those with heart disease
+heart_1 <- heart_disease %>% filter(HeartDisease == 1)
+#filter the dataset for only those without heart disease
+heart_0 <- heart_disease %>% filter(HeartDisease == 0)
+# Bar Chart by Sex for the entire data set
+p1 <- ggplot(heart_disease, aes(x =Sex)) + geom_bar(fill = "brown") + theme_bw() +
+  labs(title = "Bar Graph by Sex - All") + ylab(NULL)
+# Bar plot by Sex for only those with Heart Disease
+p2 <- ggplot(heart_1, aes(x =Sex)) + geom_bar(fill = "brown") + theme_bw() +
+  labs(title = "Bar Graph by Sex - Heart Disease") + ylab(NULL)
+# Bar plot by Sex for only those with no hear disease
+p3 <- ggplot(heart_0, aes(x =Sex)) + geom_bar(fill = "brown") + theme_bw() +
+  labs(title = "Bar Graph by Sex - No Heart Disease") + ylab(NULL)
+# Bar plot of individuals who have heart disease by Sex
+p4 <- heart_disease %>% mutate(heart_prob = ifelse(HeartDisease == 1, "Yes", "No")) %>%
+  ggplot(aes(x = heart_prob, fill = Sex)) + geom_bar() + theme_bw() + ylab(NULL) +
+  labs(title = "HeartDisease vs No HeartDisease")
+# Plot all bar graphs in a grid
+plot_grid(p1, p2, p3, p4)
+```
+
+**Histogram to show distribution by age**
+```{r}
+# Histogram to show age distribution in the dataset
+p5 <- heart_disease |> ggplot(aes(x = Age)) + geom_histogram(fill = "brown", binwidth = 2) + theme_bw() + 
+  labs(title = "Distribution by Age") + ylab(NULL)
+# Histogram of Cholesterol level
+p6 <- ggplot(heart_disease, aes(x = Cholesterol)) + geom_histogram(binwidth = 12, fill = "brown") +
+  labs(title = "Distribution of Cholesterol level") + ylab(NULL) + theme_bw()
+# Histogram of RestingBP
+p7 <- heart_disease |> ggplot(aes(x = RestingBP)) + geom_histogram(binwidth = 15, fill = "brown") +
+  labs(title = "Distribution of RestingBP") + ylab(NULL) + theme_bw()
+# Plot all the histograms in a grid
+plot_grid(p5, p6, p7)
+```
+
+**Scatter plot of RestingBP vs Cholesterol **  
+```{r}
+# RestingBP vs Cholesterol
+heart_disease |> ggplot(aes(x = Cholesterol, y = RestingBP, color = RestingECG)) + geom_point() +
+  labs(title = "RestingBP vs Cholesterol") + theme_bw()
+```
+
+**Box Plot of RestingBP for each ChestPainType**  
+```{r}
+# Boxplot by ChestPainType
+heart_disease |> ggplot() + geom_boxplot(aes(x = ChestPainType, y = RestingBP)) + 
+  labs(title = "Box Plot of Resting BP vs ChestPainType") + theme_bw()
+```
+
+#### Train Test Split
+
+**Use the CaTools library to split the dataset into training and testing datasets**
+```{r}
+# Set a seed
+set.seed(1994)
+#Split the sample
+sample <- sample.split(heart_disease$HeartDisease, SplitRatio = 0.8) 
+# Training Data
+heart_train <- subset(heart_disease, sample == TRUE)
+# Testing Data
+heart_test <- subset(heart_disease, sample == FALSE)
+```
+
+#### Train the model
+
+**Train the model using a logistic model**  
+
+```{r}
+# Train the model
+heart_logistic_model <- glm(formula = HeartDisease ~ . , family = binomial(link = 'logit'), 
+                            data = heart_train)
+```
+
+**Get the summary of the model**  
+```{r}
+# Get the summary of the logistic model
+summary(heart_logistic_model)
+```
+
+#### Fit the model  
+
+**Predict values using the model**  
+```{r}
+fit_heart_probabilities <- predict(heart_logistic_model, newdata = heart_test, type = "response")
+```
+
+**Properly group the probabilities**
+```{r}
+# Make probabilities greater than 0.5 to be 1
+fit_heart_results <- ifelse(fit_heart_probabilities > 0.5, 1, 0)
+```
+
+#### Evaluate the model  
+
+**Accuracy**  
+```{r}
+# Mis-classification Error
+misclassError <- mean(fit_heart_results != heart_test$HeartDisease)
+accuracy = round((1 - misclassError), 4) * 100
+paste0("The accuracy of the logistic regression model is ", accuracy, "%")
+```
+
+**Confusion Matrix**
+```{r}
+print("-CONFUSION MATRIX-")
+table(heart_test$HeartDisease, fit_heart_results > 0.5)
+```
+
+<center> <h4> CONCLUSION </h4> </center>
+From exploratory data analysis, we see that Males are more likely to have HeartDisease than females. Also, from the summary of the logistic model, "SexM - Male Gender" is a significant predictor of HeartDisease. Furthermore, from hypothesis testing of the difference in mean cholesterol level for those with and without heart disease, we see that there is a significant difference in their cholesterol level, but there is no significant difference in their RestingBP. Looking at the summary of the logistic model, we can easily see that Cholesterol level is also a significant predictor of HeartDisease, while RestingBP is not a significant predictor of HeartDisease. In addition, some other significant predictors of HeartDisease from the model summary are: ChestPainType, whether the individual ExerciseAngina, and Fasting Blood Sugar.
+
+
+### **2.0 Second Dataset - Death Event Prediction** 
+This analyzes if an individual will have a death_event from a heart attack.  
+
+<b>*Load the data from github repo*</b>  
+```{r read-file2, message=FALSE}
+url <- "https://raw.githubusercontent.com/chinedu2301/data622-machine-learning-and-big-data/main/data/heart_failure_clinical_records_dataset.csv"
+heart_failure <- read_csv(url)
+```
+
+<b>*Look at the head of the data*</b>  
+```{r}
+head(heart_failure, n = 10)
+```
+
+
+<b>*Get a glimpse of the variables in the datasets.*</b>  
+```{r}
+# get a glimpse of the variables
+glimpse(heart_failure)
+```
+
+*There are 299 rows and 13 columns in this data set.*  
+
+There are 13 variables and 299 observations in the dataset. Twelve(12) of the 13 variables in the dataset are potential predictors of the thirteenth(13th) variable - DEATH_EVENT. The data is labelled.  
+Each observation represents the characteristics of an individual such as Age, Anaemia, Diabetes, etc. and whether that individual has a DEATH_EVENT/Heart Failure.
+
+
+#### <b> Questions </b>  
+
+This project aims to: 
+<li> Explore the dataset to understand the data better. </li>
+<li> Find if the columns of the data correlated?. </li>
+<li> Predict whether an individual will have a death event(heart failure) or not using Logistic Regression model in R.</li>
+
+#### <b>Data Source </b>  
+
+This dataset was downloaded from [Kaggle](https://www.kaggle.com/datasets/andrewmvd/heart-failure-clinical-data) and then uploaded to my [github](https://raw.githubusercontent.com/chinedu2301/data622-machine-learning-and-big-data/main/data/heart_failure_clinical_records_dataset.csv) repository.
+
+
+#### <b>Response Variable (Dependent Variable)</b>  
+
+The dependent variable is "DEATH_EVENT" which is coded as 1 if the individual had a death_event and as 0 if the individual does not have death_event. The death_event is a two level categorical variable.
+<li>death_event: output class [1: death_event, 0: no death_event]</li>
+
+
+#### <b>Independent Variable (Explanatory or predictor variables)</b>  
+
+There are eleven (11) explanatory variables most of which are numerical and some are categorical. The explanatory variables are:  
+
+<li>age: age of the patient [years]</li>
+<li>anaemia: Decrease of red blood cells or hemoglobin [1: Yes, 0: No]</li>
+<li>creatinine_phosphokinase: Level of the CPK enzyme in the blood [mcg/L]</li>
+<li>diabetes: If the patient has diabetes [1: Yes, 0: No]</li>
+<li>ejection_fraction: Percentage of blood leaving the heart at each contraction [percentage]</li>
+<li>high_blood_pressure: If the patient has hypertension [1: Yes, 0: No]</li>
+<li>platelets: Platelets in the blood [kiloplatelets/mL] </li>
+<li>serum_creatinine: Level of serum creatinine in the blood [mg/dL]</li>
+<li>serum_sodium: Level of serum sodium in the blood [mEq/L]</li>
+<li>sex: Woman or man [1: Man, 0: Woman]</li>
+<li>smoking: If the person smokes or not [1: Yes, 0: No]</li>
+<li>time: </li>
+<li>DEATH_EVENT: Whether the individual had a death event or not [1: Yes, 0: No]</li>
+
+
+
+#### <b>Relevant Summary statistics</b>  
+
+Relevant statistics are: 
+
+<b>*Summary statistics of all variables*</b>
+```{r}
+summary(heart_failure)
+```
+
+*From the summary statistics, we can see that the average age of individuals in the dataset is 60 and the median age is about 60 as well.*  
+
+#### **Exploratory Data Analysis: **  
+
+
+**Check for Correlation**
+
+```{r}
+heart_failure_correlation = cor(heart_failure, method = c("spearman"))
+corrplot(heart_failure_correlation)
+```
+
+The predictors are largely not correlated with one another as can be seen from the correlation plot.
+
+
+**Check for Null values**
+```{r}
+# Check for NA values
+any(is.na(heart_failure))
+```
+**Visualize the na values**
+```{r}
+# use missmap function from the Amelia package to check for NA values
+missmap(heart_failure, main = "Heart Failure/Attack - Missing Values", col = c("yellow", "black"), legend = FALSE)
+```
+
+*There are no NA values in the dataset*
+
+```{r}
+#filter the dataset for only those with heart disease
+deathEvent_1 <- heart_failure %>% filter(DEATH_EVENT == 1)
+#filter the dataset for only those without heart disease
+deathEvent_0 <- heart_failure %>% filter(DEATH_EVENT == 0)
+p1 <- ggplot(heart_failure, aes(x = sex)) + geom_bar(fill = "brown") + theme_bw() +
+  labs(title = "Bar Graph by Sex - All") + ylab(NULL)
+# Bar plot by Sex for only those with Heart Disease
+p2 <- ggplot(deathEvent_1, aes(x = sex)) + geom_bar(fill = "brown") + theme_bw() +
+  labs(title = "Bar Graph by Sex - DEATH_EVENT") + ylab(NULL)
+# Bar plot by Sex for only those with no hear disease
+p3 <- ggplot(deathEvent_0, aes(x = sex)) + geom_bar(fill = "brown") + theme_bw() +
+  labs(title = "Bar Graph by Sex - No DEATH_EVENT") + ylab(NULL)
+# Bar plot of individuals who have heart disease by Sex
+p4 <- heart_failure %>% mutate(heart_prob = ifelse(DEATH_EVENT == 1, "Yes", "No")) %>%
+  ggplot(aes(x = heart_prob, fill = sex)) + geom_bar() + theme_bw() + ylab(NULL) +
+  labs(title = "DEATH_EVENT vs No DEATH_EVENT")
+# Plot all bar graphs in a grid
+plot_grid(p1, p2, p3, p4)
+```
+
+```{r}
+# Bar Charts
+p1 <- ggplot(deathEvent_1, aes(x =anaemia)) + geom_bar(fill = "brown") + theme_bw() +
+  labs(title = "Bar Graph - Anaemia") + ylab(NULL)
+p2 <- ggplot(deathEvent_1, aes(x =high_blood_pressure)) + geom_bar(fill = "brown") + theme_bw() +
+  labs(title = "Bar Graph - HBP") + ylab(NULL)
+p3 <- ggplot(deathEvent_1, aes(x =diabetes)) + geom_bar(fill = "brown") + theme_bw() +
+  labs(title = "Bar Graph - Diabetes") + ylab(NULL)
+p4 <- ggplot(deathEvent_1, aes(x =smoking)) + geom_bar(fill = "brown") + theme_bw() +
+  labs(title = "Bar Graph - Smoking") + ylab(NULL)
+# Plot all bar graphs in a grid
+plot_grid(p1, p2, p3, p4)
+```
+
+
+
+**Histogram to show distribution by age**
+```{r}
+# Histogram of ejection_fraction
+ejection_fraction <- ggplot(heart_failure, aes(x = ejection_fraction)) + geom_histogram(binwidth = 12, fill = "brown") +
+  labs(title = "Distribution of ejection_fraction") + ylab(NULL) + theme_bw()
+ejection_fraction
+```
+
+#### Train Test Split
+
+**Use the CaTools library to split the dataset into training and testing datasets**
+```{r}
+# Set a seed
+set.seed(1994)
+#Split the sample
+sample <- sample.split(heart_failure$DEATH_EVENT, SplitRatio = 0.8) 
+# Training Data
+heart_failure_train <- subset(heart_failure, sample == TRUE)
+# Testing Data
+heart_failure_test <- subset(heart_failure, sample == FALSE)
+```
+
+#### Train the model
+
+**Train the model using a logistic model**  
+
+```{r}
+# Train the model
+deathEvent_logistic_model <- glm(formula = DEATH_EVENT ~ . , family = binomial(link = 'logit'), 
+                            data = heart_failure_train)
+```
+
+**Get the summary of the model**  
+```{r}
+# Get the summary of the logistic model
+summary(deathEvent_logistic_model)
+```
+
+#### Fit the model  
+
+**Predict values using the model**  
+```{r}
+fit_deathEvent_probabilities <- predict(deathEvent_logistic_model, newdata = heart_failure_test, type = "response")
+```
+
+**Properly group the probabilities**
+```{r}
+# Make probabilities greater than 0.5 to be 1
+fit_deathEvent_results <- ifelse(fit_deathEvent_probabilities > 0.5, 1, 0)
+```
+
+#### Evaluate the model  
+
+**Accuracy**  
+```{r}
+# Mis-classification Error
+misclassError <- mean(fit_deathEvent_results != heart_failure_test$DEATH_EVENT)
+accuracy = round((1 - misclassError), 4) * 100
+paste0("The accuracy of the logistic regression model is ", accuracy, "%")
+```
+
+**Confusion Matrix**
+```{r}
+print("-CONFUSION MATRIX-")
+table(heart_failure_test$DEATH_EVENT, fit_deathEvent_results > 0.5)
+```
+
+<center> <h4> CONCLUSION </h4> </center>
+From exploratory data analysis, we see that Males are more likely to have Death Events from a heart attack.
+
+
